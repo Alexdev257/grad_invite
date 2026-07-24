@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Thiệp mời Lễ Tốt nghiệp</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; overflow:hidden; font-family:-apple-system,"Segoe UI",Roboto,sans-serif; }
+  body { background:#0e0a20; }
+  #stage { position:fixed; inset:0; }
+  canvas { display:block; }
+
+  /* Vignette điện ảnh */
+  #vignette { position:fixed; inset:0; pointer-events:none; z-index:4;
+    background:radial-gradient(circle at 50% 42%, rgba(0,0,0,0) 45%, rgba(0,0,0,.45) 100%); }
+
+  #diploma {
+    position:fixed; left:50%; top:44%;
+    transform:translate(-50%,-50%) scale(.15) rotate(-8deg);
+    width:min(42vw, 440px); opacity:0; pointer-events:none; z-index:6;
+    border-radius:10px; filter:drop-shadow(0 24px 48px rgba(0,0,0,.6));
+    transition:opacity .55s ease, transform .8s cubic-bezier(.18,.9,.2,1.25);
+  }
+  #diploma.show { opacity:1; transform:translate(-50%,-50%) scale(1) rotate(-2deg); }
+
+  #caption {
+    position:fixed; left:0; right:0; bottom:92px; text-align:center; z-index:7;
+    color:#fff; font-size:24px; font-weight:700; letter-spacing:.4px;
+    text-shadow:0 3px 20px rgba(0,0,0,.7); opacity:0; transition:opacity .4s ease; padding:0 16px;
+  }
+  #caption.show { opacity:1; }
+
+  #hud { position:fixed; left:0; right:0; top:20px; text-align:center; z-index:7; color:#fff; pointer-events:none; }
+  #hud h1 { font-size:19px; font-weight:800; letter-spacing:.5px; text-shadow:0 2px 12px rgba(0,0,0,.6); }
+  #hud p  { font-size:12px; opacity:.65; margin-top:3px; }
+
+  .bar { position:fixed; left:0; right:0; bottom:20px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap; z-index:8; padding:0 10px; }
+  button {
+    background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.28); color:#fff;
+    padding:10px 18px; border-radius:999px; font-size:13px; cursor:pointer;
+    backdrop-filter:blur(8px); transition:background .15s; white-space:nowrap;
+  }
+  button:hover { background:rgba(255,255,255,.28); }
+  button.primary { background:#e8a13a; border-color:#f0b968; color:#231400; font-weight:700; }
+  button.primary:hover { background:#f2b04d; }
+
+  #loader { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    color:#fff; z-index:20; background:rgba(14,10,32,.95); gap:14px; }
+  #loader.hidden { display:none; }
+  .spin { width:44px; height:44px; border:4px solid rgba(255,255,255,.25); border-top-color:#fff; border-radius:50%; animation:sp 1s linear infinite; }
+  @keyframes sp { to { transform:rotate(360deg); } }
+  #loader small { opacity:.6; font-size:12px; }
+  #loader .pct { font-size:13px; opacity:.85; }
+  #err { position:fixed; left:12px; bottom:66px; max-width:90vw; color:#ffb3b3; font-size:12px; z-index:30; white-space:pre-wrap; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+</head>
+<body>
+  <div id="stage"></div>
+  <div id="vignette"></div>
+  <img id="diploma" src="fpt_diploma.png" alt="Bằng tốt nghiệp FPT University" />
+
+  <div id="hud">
+    <h1>🎓 LỄ TỐT NGHIỆP</h1>
+    <p>Kéo để xoay · lăn chuột để phóng to/thu nhỏ</p>
+  </div>
+
+  <div id="caption"></div>
+
+  <div class="bar">
+    <button id="play" class="primary">▶ Chạy kịch bản</button>
+    <button id="fit">⤢ Vừa khung</button>
+    <button id="rotate">Tự xoay: Tắt</button>
+  </div>
+
+  <div id="loader">
+    <div class="spin"></div>
+    <div>Đang tải nhân vật 3D…</div>
+    <div class="pct">0 / 4 phần</div>
+    <small>(model chất lượng cao ~90MB, lần đầu hơi lâu)</small>
+  </div>
+  <div id="err"></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const stage = document.getElementById('stage');
+const diplomaEl = document.getElementById('diploma');
+const captionEl = document.getElementById('caption');
+const loaderEl = document.getElementById('loader');
+const pctEl = loaderEl.querySelector('.pct');
+const errEl = document.getElementById('err');
+function showErr(m){ errEl.textContent = 'Lỗi: ' + m; console.error('[grad]', m); }
+window.addEventListener('error', e => showErr(e.message));
+
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+
+// Nền gradient ấm (kiểu sân khấu tốt nghiệp)
+{
+  const c = document.createElement('canvas'); c.width = 16; c.height = 256;
+  const g = c.getContext('2d').createLinearGradient(0,0,0,256);
+  g.addColorStop(0,'#4a3d86'); g.addColorStop(0.5,'#2a2150'); g.addColorStop(1,'#140f2b');
+  const ctx = c.getContext('2d'); ctx.fillStyle = g; ctx.fillRect(0,0,16,256);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  scene.background = tex;
+}
+
+const camera = new THREE.PerspectiveCamera(40, innerWidth/innerHeight, 0.01, 1000);
+
+// Môi trường studio cho phản xạ PBR mềm → da/vải "có hồn" hơn
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+// Ánh sáng 3 điểm + đèn viền tách nền
+scene.add(new THREE.HemisphereLight(0xffffff, 0x39304f, 0.35));
+const key = new THREE.DirectionalLight(0xfff2df, 2.1);
+key.position.set(3, 6, 5); key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.near = 0.5; key.shadow.camera.far = 40;
+key.shadow.camera.left = -5; key.shadow.camera.right = 5;
+key.shadow.camera.top = 6; key.shadow.camera.bottom = -2;
+key.shadow.bias = -0.0004;
+scene.add(key);
+const fill = new THREE.DirectionalLight(0x9fb8ff, 0.55); fill.position.set(-4, 3, 2); scene.add(fill);
+const rim  = new THREE.DirectionalLight(0xffffff, 2.6);  rim.position.set(-3, 5, -5); scene.add(rim);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.enablePan = false;
+controls.minPolarAngle = 0.05 * Math.PI; controls.maxPolarAngle = 0.55 * Math.PI;
+let autoRotate = false; controls.autoRotateSpeed = 1.1;
+
+const loader = new GLTFLoader();
+let doneCount = 0;
+function loadGLB(url){
+  return new Promise((res, rej) => loader.load(url, (g)=>{ doneCount++; pctEl.textContent = doneCount+' / 4 phần'; res(g); }, undefined, rej));
+}
+
+let mixer, actions = {}, currentAction = null, state = 'inspect';
+let theModel = null, modelTop = new THREE.Vector3();
+const clock = new THREE.Clock();
+
+function frameModel(mode = 'inspect'){
+  if (!theModel) return;
+  theModel.updateWorldMatrix(true, true);
+  const box = new THREE.Box3().setFromObject(theModel, true);
+  if (box.isEmpty()) return;
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  let h = size.y || 1.75; if (h < 0.5) h = 1.75;
+  const action = (mode === 'action');
+  const contentH = action ? h * 1.75 : h;
+  const targetY  = action ? center.y + h * 0.30 : center.y;
+  const pad      = action ? 1.12 : 1.28;
+  const vFov = THREE.MathUtils.degToRad(camera.fov);
+  const fitH = (contentH / 2) / Math.tan(vFov / 2);
+  const fitW = (Math.max(size.x, size.z) * 1.15 / 2) / (Math.tan(vFov / 2) * camera.aspect);
+  const dist = pad * Math.max(fitH, fitW, 0.5);
+  const dir = new THREE.Vector3(0.22, 0, 1).normalize();
+  controls.target.set(center.x, targetY, center.z);
+  camera.position.set(center.x, targetY, center.z).addScaledVector(dir, dist);
+  camera.near = Math.max(dist / 300, 0.01); camera.far = dist * 300;
+  camera.updateProjectionMatrix();
+  controls.minDistance = dist * 0.3; controls.maxDistance = dist * 4.5;
+  controls.update();
+}
+
+async function init(){
+  let waveG, backG, happyG, idleG;
+  try {
+    const V = '9';   // đổi số này mỗi lần thay GLB để ép tải mới, tránh cache
+    [waveG, backG, happyG, idleG] = await Promise.all([
+      loadGLB('wave.glb?b='+V), loadGLB('backjump.glb?b='+V), loadGLB('happyjump.glb?b='+V), loadGLB('idle.glb?b='+V),
+    ]);
+  } catch (e) { showErr('Không tải được file GLB. ' + (e?.message || e)); return; }
+
+  theModel = waveG.scene;
+  theModel.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
+  scene.add(theModel);
+
+  const box = new THREE.Box3().setFromObject(theModel, true);
+  const center = box.getCenter(new THREE.Vector3());
+  modelTop.set(center.x, box.max.y + 0.15, center.z);
+
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.ShadowMaterial({ opacity: 0.32 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = box.min.y; ground.receiveShadow = true; scene.add(ground);
+
+  frameModel('inspect');
+
+  mixer = new THREE.AnimationMixer(theModel);
+  const map = { wave: waveG, back: backG, happy: happyG, idle: idleG };
+  for (const k in map){
+    const clip = map[k].animations[0];
+    if (!clip){ showErr('Thiếu animation trong ' + k); return; }
+    actions[k] = mixer.clipAction(clip);
+  }
+  mixer.addEventListener('finished', (e) => {
+    if (e.action !== currentAction) return;
+    if (state === 'wave')       beatShowDiploma();
+    else if (state === 'back')  { state = 'happy'; setCaption('Yeahhh! 🎉'); play('happy', THREE.LoopOnce); spawnConfetti(); }
+    else if (state === 'happy') { state = 'done';  setCaption('Hẹn gặp bạn tại lễ tốt nghiệp! 🎓'); play('idle', THREE.LoopRepeat); frameModel('inspect'); }
+  });
+
+  state = 'inspect';
+  play('idle', THREE.LoopRepeat);
+  setCaption('Nhấn “▶ Chạy kịch bản” để xem hoạt cảnh');
+  loaderEl.classList.add('hidden');
+  animate();
+}
+
+function play(name, loop, fade = 0.34){
+  const next = actions[name];
+  next.reset();
+  next.setLoop(loop, loop === THREE.LoopOnce ? 1 : Infinity);
+  next.clampWhenFinished = (loop === THREE.LoopOnce);
+  next.enabled = true; next.setEffectiveWeight(1);
+  next.fadeIn(fade); next.play();
+  if (currentAction && currentAction !== next) currentAction.fadeOut(fade);
+  currentAction = next;
+  return next;
+}
+
+function setCaption(t){ captionEl.textContent = t; captionEl.classList.add('show'); }
+
+let showTimers = [];
+function clearTimers(){ showTimers.forEach(clearTimeout); showTimers = []; }
+
+function runSequence(){
+  clearTimers(); removeConfetti();
+  diplomaEl.classList.remove('show');
+  frameModel('action');
+  state = 'wave'; setCaption('Xin chào mọi người! 👋');
+  play('wave', THREE.LoopOnce);
+}
+function beatShowDiploma(){
+  state = 'show'; setCaption('Mình đã tốt nghiệp Đại học FPT!');
+  play('idle', THREE.LoopRepeat);
+  diplomaEl.classList.add('show');
+  showTimers.push(setTimeout(() => {
+    diplomaEl.classList.remove('show');
+    showTimers.push(setTimeout(() => { state = 'back'; setCaption('Hí hí, nhảy phát nào!'); play('back', THREE.LoopOnce); }, 650));
+  }, 3600));
+}
+
+/* ---- Confetti ---- */
+let confetti = null;
+const CONF_COLORS = ['#ff5d73','#ffd166','#06d6a0','#4d96ff','#c77dff','#ff9f1c','#ffffff'];
+function spawnConfetti(){
+  removeConfetti();
+  const N = 320;
+  const pos = new Float32Array(N*3), col = new Float32Array(N*3), vel = [];
+  for (let i=0;i<N;i++){
+    pos[i*3]   = modelTop.x + (Math.random()-0.5)*0.7;
+    pos[i*3+1] = modelTop.y + Math.random()*0.5;
+    pos[i*3+2] = modelTop.z + (Math.random()-0.5)*0.7;
+    const c = new THREE.Color(CONF_COLORS[i % CONF_COLORS.length]);
+    col[i*3]=c.r; col[i*3+1]=c.g; col[i*3+2]=c.b;
+    vel.push(new THREE.Vector3((Math.random()-0.5)*2.4, 2.6+Math.random()*2.8, (Math.random()-0.5)*2.4));
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col,3));
+  const mat = new THREE.PointsMaterial({ size:0.055, vertexColors:true, transparent:true, depthWrite:false, sizeAttenuation:true });
+  confetti = new THREE.Points(geo, mat);
+  confetti.userData = { vel, life:0, ttl:3.4 };
+  scene.add(confetti);
+}
+function updateConfetti(dt){
+  if (!confetti) return;
+  const d = confetti.userData; d.life += dt;
+  const p = confetti.geometry.attributes.position;
+  for (let i=0;i<d.vel.length;i++){
+    const v = d.vel[i]; v.y -= 6.2*dt; v.multiplyScalar(0.992);
+    p.setXYZ(i, p.getX(i)+v.x*dt, p.getY(i)+v.y*dt, p.getZ(i)+v.z*dt);
+  }
+  p.needsUpdate = true;
+  confetti.material.opacity = Math.max(0, 1 - d.life/d.ttl);
+  if (d.life >= d.ttl) removeConfetti();
+}
+function removeConfetti(){ if (confetti){ scene.remove(confetti); confetti.geometry.dispose(); confetti.material.dispose(); confetti = null; } }
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+  if (mixer) mixer.update(dt);
+  updateConfetti(dt);
+  controls.autoRotate = autoRotate;
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+document.getElementById('play').addEventListener('click', runSequence);
+document.getElementById('fit').addEventListener('click', () => frameModel('inspect'));
+const rotBtn = document.getElementById('rotate');
+rotBtn.addEventListener('click', () => { autoRotate = !autoRotate; rotBtn.textContent = 'Tự xoay: ' + (autoRotate ? 'Bật' : 'Tắt'); });
+window.addEventListener('resize', () => { camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+
+init();
+</script>
+</body>
+</html>
