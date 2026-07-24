@@ -265,52 +265,261 @@ body {
   text-shadow: 0 2px 14px rgba(0, 0, 0, 0.55);
 }
 
-/* ---------- Loader ---------- */
+/* ---------- Loader: màn chờ "đang chuẩn bị buổi lễ" ---------- */
 .loader {
   position: fixed;
   inset: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 20px;
   z-index: 20;
-  background: radial-gradient(circle at 50% 40%, #1a1236, #0b0716 75%);
-  transition: opacity 0.8s ease;
+  overflow: hidden;
+  background: radial-gradient(
+    120% 90% at 50% 36%,
+    #16345f 0%,
+    #0c2044 46%,
+    #050c1c 100%
+  );
+  transition: opacity 0.9s ease, visibility 0.9s ease;
 }
 .loader.hidden {
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-}
-.loader .cap {
-  font-family: var(--font-display), serif;
-  font-size: 22px;
-  letter-spacing: 0.14em;
-  color: var(--gold-bright);
-}
-.loader .ring {
-  width: 46px;
-  height: 46px;
-  border: 3px solid rgba(232, 192, 122, 0.22);
-  border-top-color: var(--gold-bright);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
 }
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
 }
-.loader .pct {
-  font-family: var(--font-body), sans-serif;
-  font-size: 13px;
-  letter-spacing: 0.1em;
-  color: rgba(247, 242, 232, 0.6);
+
+/* Hạt vàng bay lên (16 hạt, phân bố + so le thời gian) */
+.ld-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
-.loader .hint {
+.ld-particles span {
+  position: absolute;
+  bottom: -12px;
+  left: calc(3% + var(--i) * 6.1%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(246, 220, 160, 0.95),
+    rgba(246, 220, 160, 0) 70%
+  );
+  opacity: 0;
+  animation: ldFloat calc(5s + var(--i) * 0.24s) linear infinite;
+  animation-delay: calc(var(--i) * -0.53s);
+}
+@keyframes ldFloat {
+  0% {
+    transform: translateY(0) scale(0.5);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.9;
+  }
+  82% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-82vh) scale(1.15);
+    opacity: 0;
+  }
+}
+
+.ld-core {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+  padding: 0 24px;
+}
+
+/* Huy hiệu tốt nghiệp: quầng sáng + vòng shimmer xoay + mũ cử nhân */
+.ld-emblem {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  display: grid;
+  place-items: center;
+  animation: ldBob 3.4s ease-in-out infinite;
+}
+@keyframes ldBob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-9px);
+  }
+}
+.ld-glow {
+  position: absolute;
+  inset: -34%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(232, 192, 122, 0.38), transparent 66%);
+  filter: blur(3px);
+  animation: ldPulse 3.4s ease-in-out infinite;
+}
+@keyframes ldPulse {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(0.94);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+.ld-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0 52%,
+    rgba(246, 220, 160, 0.12) 60%,
+    var(--gold-bright) 80%,
+    rgba(246, 220, 160, 0.12) 90%,
+    transparent 96%
+  );
+  -webkit-mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 5px),
+    #000 calc(100% - 4px)
+  );
+  mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 5px),
+    #000 calc(100% - 4px)
+  );
+  animation: spin 2.6s linear infinite;
+}
+.ld-cap {
+  font-size: 54px;
+  line-height: 1;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.5))
+    drop-shadow(0 0 18px rgba(232, 192, 122, 0.5));
+  animation: ldTilt 3.4s ease-in-out infinite;
+}
+@keyframes ldTilt {
+  0%,
+  100% {
+    transform: rotate(-4deg);
+  }
+  50% {
+    transform: rotate(4deg);
+  }
+}
+
+.ld-title {
+  font-family: var(--font-display), serif;
+  font-weight: 700;
+  font-size: clamp(22px, 5.4vw, 34px);
+  letter-spacing: 0.14em;
+  color: var(--gold-bright);
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.5);
+  margin-top: 8px;
+}
+.ld-sub {
+  font-family: var(--font-display), serif;
+  font-size: clamp(15px, 3.6vw, 21px);
+  color: #fff;
+  opacity: 0.92;
+}
+
+/* Chữ kể chuyện xoay vòng (5 dòng, mỗi dòng ~2.5s) */
+.ld-messages {
+  position: relative;
+  height: 1.5em;
+  width: min(84vw, 360px);
+  margin-top: 6px;
+}
+.ld-messages span {
+  position: absolute;
+  left: 0;
+  right: 0;
   font-family: var(--font-body), sans-serif;
-  font-size: 11px;
-  color: rgba(247, 242, 232, 0.35);
+  font-size: clamp(12px, 3vw, 14px);
+  letter-spacing: 0.05em;
+  color: rgba(247, 242, 232, 0.74);
+  opacity: 0;
+  animation: ldMsg 12.5s infinite;
+}
+.ld-messages span:nth-child(1) {
+  animation-delay: 0s;
+}
+.ld-messages span:nth-child(2) {
+  animation-delay: 2.5s;
+}
+.ld-messages span:nth-child(3) {
+  animation-delay: 5s;
+}
+.ld-messages span:nth-child(4) {
+  animation-delay: 7.5s;
+}
+.ld-messages span:nth-child(5) {
+  animation-delay: 10s;
+}
+@keyframes ldMsg {
+  0% {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  4% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  16% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  20% {
+    opacity: 0;
+    transform: translateY(-7px);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Thanh sweep vàng (không lộ số phần / không lộ đang tải 3D) */
+.ld-bar {
+  width: min(62vw, 208px);
+  height: 3px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  margin-top: 12px;
+}
+.ld-bar i {
+  display: block;
+  height: 100%;
+  width: 42%;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--gold-bright),
+    transparent
+  );
+  animation: ldSweep 1.5s ease-in-out infinite;
+}
+@keyframes ldSweep {
+  0% {
+    transform: translateX(-130%);
+  }
+  100% {
+    transform: translateX(360%);
+  }
 }
 
 /* Nút replay tuỳ chọn (ẩn theo yêu cầu — giữ để dễ bật lại) */

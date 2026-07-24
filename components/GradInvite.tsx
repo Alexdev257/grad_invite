@@ -877,12 +877,30 @@ export default function GradInvite({ name }: Props) {
       </div>
 
       <div className="loader" ref={loaderRef}>
-        <div className="cap">🎓 LỄ TỐT NGHIỆP</div>
-        <div className="ring" />
-        <div className="pct" ref={pctRef}>
-          0 / 4 phần
+        <div className="ld-particles" aria-hidden="true">
+          {Array.from({ length: 16 }).map((_, i) => (
+            <span key={i} style={{ "--i": i } as React.CSSProperties} />
+          ))}
         </div>
-        <div className="hint">Đang tải nhân vật 3D…</div>
+        <div className="ld-core">
+          <div className="ld-emblem">
+            <span className="ld-glow" />
+            <span className="ld-ring" />
+            <span className="ld-cap">🎓</span>
+          </div>
+          <div className="ld-title">LỄ TỐT NGHIỆP</div>
+          <div className="ld-sub">{INVITE.graduate}</div>
+          <div className="ld-messages" aria-hidden="true">
+            <span>Đang trải thảm đỏ…</span>
+            <span>Đang thắp sáng khán đài…</span>
+            <span>Đang kết hoa, treo đèn…</span>
+            <span>Đang tung mũ ăn mừng…</span>
+            <span>Sắp bắt đầu rồi…</span>
+          </div>
+          <div className="ld-bar">
+            <i />
+          </div>
+        </div>
       </div>
 
       <div className="err" ref={errRef} />
