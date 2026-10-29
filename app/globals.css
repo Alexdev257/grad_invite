@@ -266,9 +266,20 @@ body {
 }
 .venue-link {
   pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
   color: inherit;
   text-decoration: none;
   cursor: pointer;
+}
+.venue-link-hint {
+  color: var(--gold-bright);
+  font-size: 0.75em;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-shadow: none;
 }
 .venue-link:hover {
   text-decoration: underline;

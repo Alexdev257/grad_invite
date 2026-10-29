@@ -848,6 +848,7 @@ export default function GradInvite({ name }: Props) {
               rel="noopener noreferrer"
             >
               {INVITE.venue}
+              <span className="venue-link-hint">Bấm để mở bản đồ ↗</span>
             </a>
           </div>
         </div>
