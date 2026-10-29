@@ -10,7 +10,7 @@ import { INVITE } from "@/lib/config";
 type Props = { name: string };
 
 // Các mốc khung hình của camera
-type FrameKind = "center" | "action" | "final";
+type FrameKind = "center" | "final";
 
 export default function GradInvite({ name }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
@@ -18,7 +18,6 @@ export default function GradInvite({ name }: Props) {
   const topRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const loaderRef = useRef<HTMLDivElement>(null);
-  const pctRef = useRef<HTMLDivElement>(null);
   const errRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -62,7 +61,7 @@ export default function GradInvite({ name }: Props) {
     let viewW = stage.clientWidth || window.innerWidth;
     let viewH = stage.clientHeight || window.innerHeight;
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.setSize(viewW, viewH, false); // false: giữ CSS canvas 100% (xem globals.css)
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -74,9 +73,8 @@ export default function GradInvite({ name }: Props) {
     const scene = new THREE.Scene();
 
     // ---------- Nền: ảnh Meshy đặt bằng lớp CSS (.bg-photo) phía dưới canvas ----------
-    // Canvas để TRONG SUỐT (renderer alpha:true) → ảnh nền tốt nghiệp hiện xuyên qua,
-    // scale "cover" chuẩn mọi tỉ lệ màn hình. Nền luôn nằm dưới nên không bao giờ
-    // che nhân vật (kể cả khi nhảy lùi).
+    // Canvas trong suốt để ảnh nền tốt nghiệp hiện xuyên qua, scale "cover" chuẩn mọi
+    // tỉ lệ màn hình. Nền luôn nằm dưới nhân vật.
     scene.background = null;
 
     const camera = new THREE.PerspectiveCamera(38, viewW / viewH, 0.01, 2000);
@@ -90,7 +88,7 @@ export default function GradInvite({ name }: Props) {
     const key = new THREE.DirectionalLight(0xfff0d8, 2.2);
     key.position.set(3, 6, 5);
     key.castShadow = true;
-    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.mapSize.set(1024, 1024);
     key.shadow.camera.near = 0.5;
     key.shadow.camera.far = 40;
     key.shadow.camera.left = -6;
@@ -250,11 +248,7 @@ export default function GradInvite({ name }: Props) {
       let contentH: number;
       let targetY: number;
       let pad: number;
-      if (kind === "action") {
-        contentH = mHeight * 1.7; // chừa đầu để nhảy
-        targetY = mCenter.y + mHeight * 0.26;
-        pad = 1.12;
-      } else if (kind === "final") {
+      if (kind === "final") {
         // Màn rộng: nhân vật to vừa, dồn trái. Màn hẹp: zoom xa hơn cho thoáng chữ.
         const wide = camera.aspect >= 1.1;
         contentH = mHeight * (wide ? 1.34 : 1.78);
@@ -282,7 +276,7 @@ export default function GradInvite({ name }: Props) {
       const dist = fitDistance(contentH, pad);
       // NEO CHÂN LÊN SÀN: đặt bàn chân nhân vật đúng mức sàn của ảnh nền (~84% màn)
       // để nhân vật đứng trên sàn, không lơ lửng. (Ảnh nền cover hiện đủ chiều cao ở
-      // mọi aspect < 1.79 → sàn ở cùng mức màn.) Không áp cho pha nhảy (action).
+      // mọi aspect < 1.79 → sàn ở cùng mức màn.)
       if (kind === "center" || kind === "final") {
         const vFov2 = THREE.MathUtils.degToRad(camera.fov);
         const worldVisH = 2 * dist * Math.tan(vFov2 / 2);
@@ -335,29 +329,31 @@ export default function GradInvite({ name }: Props) {
 
     // ---------- Loader models ----------
     const loader = new GLTFLoader();
-    let doneCount = 0;
-    const TOTAL = 4;
     const loadGLB = (url: string): Promise<GLTF> =>
       new Promise<GLTF>((res, rej) =>
         loader.load(
           url,
-          (g) => {
-            doneCount++;
-            if (pctRef.current)
-              pctRef.current.textContent = `${doneCount} / ${TOTAL} phần`;
-            res(g);
-          },
+          res,
           undefined,
           rej
         )
       );
 
-    // Background: HDRI ảnh thật 360° (Poly Haven, CC0) → nền + chiếu sáng IBL chân thật.
-    // Nền ở vô cực nên nhân vật KHÔNG BAO GIỜ bị che khi nhảy lùi.
+    // Dùng RoomEnvironment có sẵn làm ánh sáng mặc định để tránh tải HDRI 6 MB.
+    // Có thể tải HDRI bổ sung khi chủ động truyền ?hdri=...
     const params0 = new URLSearchParams(window.location.search);
-    const HDRI_FILE = params0.get("hdri") || "theater_01"; // cảnh HDRI dùng cho ÁNH SÁNG
-    const HDRI_ROT = Number(params0.get("rot") ?? "1.57"); // xoay nguồn sáng IBL
+    const HDRI_PRESETS = new Set([
+      "theater_01",
+      "music_hall_01",
+      "graaff_reinet_groote_kerk",
+    ]);
+    const requestedHDRI = params0.get("hdri");
+    const HDRI_FILE =
+      requestedHDRI && HDRI_PRESETS.has(requestedHDRI) ? requestedHDRI : null;
+    const requestedRotation = Number(params0.get("rot") ?? "1.57");
+    const HDRI_ROT = Number.isFinite(requestedRotation) ? requestedRotation : 1.57;
     function loadHDRI() {
+      if (!HDRI_FILE) return;
       // 2k đủ đẹp cho IBL (PMREM làm mờ), nhẹ hơn nhiều → an toàn cho điện thoại
       new RGBELoader().load(
         `/hdri/${HDRI_FILE}_2k.hdr`,
@@ -378,10 +374,10 @@ export default function GradInvite({ name }: Props) {
     let mixer: THREE.AnimationMixer | null = null;
     const actions: Record<string, THREE.AnimationAction> = {};
     let currentAction: THREE.AnimationAction | null = null;
-    type Scene = "loading" | "wave" | "diploma" | "back" | "happy" | "final";
+    type Scene = "loading" | "wave" | "diploma" | "final";
     let sstate: Scene = "loading";
     let enteredFinal = false;
-    // QA: ?stage=diploma|celebrate|final để nhảy thẳng tới 1 pha
+    // QA: ?stage=diploma|final để nhảy thẳng tới một pha
     const jumpStage = new URLSearchParams(window.location.search).get("stage");
 
     function play(
@@ -406,24 +402,19 @@ export default function GradInvite({ name }: Props) {
     const clock = new THREE.Clock();
 
     async function init() {
-      let waveG: GLTF, backG: GLTF, happyG: GLTF, idleG: GLTF;
+      let characterG: GLTF;
       try {
-        [waveG, backG, happyG, idleG] = await Promise.all([
-          loadGLB("/models/wave.glb"),
-          loadGLB("/models/backjump.glb"),
-          loadGLB("/models/happyjump.glb"),
-          loadGLB("/models/idle.glb"),
-        ]);
+        characterG = await loadGLB("/models/character.glb");
       } catch (e) {
         showErr(
-          "Không tải được file GLB. " +
+          "Không tải được mô hình nhân vật. " +
             (e instanceof Error ? e.message : String(e))
         );
         return;
       }
       if (disposed) return;
 
-      theModel = waveG.scene;
+      theModel = characterG.scene;
       theModel.traverse((o) => {
         const m = o as THREE.Mesh;
         if (m.isMesh) {
@@ -436,26 +427,19 @@ export default function GradInvite({ name }: Props) {
       // Mixer + actions phải tạo TRƯỚC khi đo: bind-pose của skinned mesh cho
       // bounding box sai (bẹp) → ta áp pose "idle" rồi mới đo box thật.
       mixer = new THREE.AnimationMixer(theModel);
-      {
-        const map: Record<string, GLTF> = {
-          wave: waveG,
-          back: backG,
-          happy: happyG,
-          idle: idleG,
-        };
-        for (const k in map) {
-          const clip = map[k].animations[0];
-          if (!clip) {
-            showErr("Thiếu animation trong " + k);
-            return;
-          }
-          actions[k] = mixer.clipAction(clip);
-          dlog("clip", k, { dur: +clip.duration.toFixed(2) });
-        }
+      const waveClip = characterG.animations.find((clip) => clip.name === "wave");
+      const idleClip = characterG.animations.find((clip) => clip.name === "idle");
+      if (!waveClip || !idleClip) {
+        showErr("Mô hình nhân vật thiếu animation vẫy tay hoặc đứng yên.");
+        return;
       }
-      // wave/happy hơi dài → tăng nhẹ tốc độ phát cho gọn kịch bản
+      actions.wave = mixer.clipAction(waveClip);
+      actions.idle = mixer.clipAction(idleClip);
+      dlog("clip", "wave", { dur: +waveClip.duration.toFixed(2) });
+      dlog("clip", "idle", { dur: +idleClip.duration.toFixed(2) });
+
+      // Animation vẫy tay hơi dài → tăng nhẹ tốc độ phát cho gọn kịch bản
       actions.wave.timeScale = 1.25;
-      actions.happy.timeScale = 1.35;
 
       // Áp pose idle 1 frame để đo model chuẩn.
       // QUAN TRỌNG: sau mixer.update phải updateMatrixWorld để bone.matrixWorld
@@ -544,10 +528,6 @@ export default function GradInvite({ name }: Props) {
         dlog("finished action while state=", sstate);
         if (sstate === "wave") {
           beatShowDiploma();
-        } else if (sstate === "back") {
-          startHappy();
-        } else if (sstate === "happy") {
-          enterFinal();
         }
       });
 
@@ -564,12 +544,6 @@ export default function GradInvite({ name }: Props) {
         enterFinal();
         return;
       }
-      if (jumpStage === "celebrate") {
-        sstate = "back";
-        setFrame("action");
-        play("back", THREE.LoopOnce);
-        return;
-      }
       if (jumpStage === "diploma") {
         beatShowDiploma();
         return;
@@ -578,21 +552,19 @@ export default function GradInvite({ name }: Props) {
       dlog("scenario: WAVE");
       sstate = "wave";
       setFrame("center");
-      play("wave", THREE.LoopOnce);
-    }
-
-    function startHappy() {
-      // 3b) Ăn mừng: happy jump (clip dài ~9.9s → cắt sớm để không lê thê)
-      sstate = "happy";
-      dlog("scenario: HAPPY");
-      play("happy", THREE.LoopOnce);
-      spawnConfetti();
-      addTimer(() => {
-        if (sstate === "happy") enterFinal();
-      }, 4200);
+      const wave = play("wave", THREE.LoopOnce);
+      if (wave) {
+        // Chuyển cảnh vẫn đúng nhịp trên máy yếu nếu renderer không phát đủ frame
+        // để sự kiện "finished" của mixer chạy đúng thời điểm.
+        const waveDuration = (wave.getClip().duration / wave.timeScale) * 1000;
+        addTimer(() => {
+          if (sstate === "wave") beatShowDiploma();
+        }, waveDuration + 500);
+      }
     }
 
     function beatShowDiploma() {
+      if (sstate === "diploma" || sstate === "final") return;
       // 2) Hiện bằng tốt nghiệp
       dlog("scenario: DIPLOMA");
       sstate = "diploma";
@@ -601,11 +573,7 @@ export default function GradInvite({ name }: Props) {
       addTimer(() => {
         diplomaRef.current?.classList.remove("show");
         addTimer(() => {
-          // 3) Ăn mừng: nhảy
-          sstate = "back";
-          dlog("scenario: BACK");
-          setFrame("action");
-          play("back", THREE.LoopOnce);
+          enterFinal();
         }, 700);
       }, 3400);
     }
@@ -613,7 +581,7 @@ export default function GradInvite({ name }: Props) {
     function enterFinal() {
       if (enteredFinal) return; // tránh gọi 2 lần (timer + finished)
       enteredFinal = true;
-      // 4) Đứng yên (idle), lệch trái, từ từ hiện chữ mời
+      // Đứng yên (idle), lệch trái, từ từ hiện chữ mời
       dlog("scenario: FINAL");
       sstate = "final";
       play("idle", THREE.LoopRepeat);
@@ -702,7 +670,7 @@ export default function GradInvite({ name }: Props) {
     const liveBox = new THREE.Box3();
     function animate() {
       raf = requestAnimationFrame(animate);
-      const dt = Math.min(clock.getDelta(), 0.05);
+      const dt = Math.min(clock.getDelta(), 0.1);
       if (mixer) mixer.update(dt);
 
       // heartbeat: live bounding box vs khung camera
@@ -741,10 +709,9 @@ export default function GradInvite({ name }: Props) {
         const k = 1 - Math.exp(-dt * 3.2);
         curPos.lerp(goalPos, k);
         curTgt.lerp(goalTgt, k);
-        // Bám theo thân (Hips) để nhân vật cố định trong khung dù animation đẩy đi:
+        // Bám theo thân (Hips) để nhân vật cố định trong khung khi vẫy tay:
         //  • X: mọi pha (trừ final) → luôn ở GIỮA.
-        //  • Y,Z: pha ĐỨNG (vẫy tay / hiện bằng) → CHÂN BÁM SÀN (bù bước lùi + nhún của
-        //    animation vẫy tay). Không áp cho pha nhảy (để cú nhảy còn động).
+        //  • Y,Z: pha vẫy tay / hiện bằng → CHÂN BÁM SÀN (bù bước lùi + nhún).
         let dtx = 0;
         let dty = 0;
         let dtz = 0;
@@ -845,8 +812,11 @@ export default function GradInvite({ name }: Props) {
       <img
         className="diploma"
         ref={diplomaRef}
-        src="/fpt_diploma.png"
+        src="/fpt_diploma.webp"
         alt="Bằng tốt nghiệp"
+        loading="lazy"
+        fetchPriority="low"
+        decoding="async"
       />
 
       <div className="invite-top" ref={topRef}>
@@ -871,7 +841,14 @@ export default function GradInvite({ name }: Props) {
           </div>
           <div className="info-item">
             <span className="lbl">Địa điểm</span>
-            <span className="val">{INVITE.venue}</span>
+            <a
+              className="val venue-link"
+              href="https://maps.app.goo.gl/qed8zZNsD35exc3U9"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {INVITE.venue}
+            </a>
           </div>
         </div>
       </div>
@@ -894,7 +871,7 @@ export default function GradInvite({ name }: Props) {
             <span>Đang trải thảm đỏ…</span>
             <span>Đang thắp sáng khán đài…</span>
             <span>Đang kết hoa, treo đèn…</span>
-            <span>Đang tung mũ ăn mừng…</span>
+            <span>Đang chuẩn bị lời mời…</span>
             <span>Sắp bắt đầu rồi…</span>
           </div>
           <div className="ld-bar">

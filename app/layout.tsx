@@ -19,6 +19,7 @@ const display = Playfair_Display({
 export const metadata: Metadata = {
   title: "Thiệp mời Lễ Tốt nghiệp",
   description: "Trân trọng kính mời bạn đến tham dự Lễ Tốt nghiệp",
+  icons: { icon: "/favicon.svg" },
 };
 
 export const viewport = {

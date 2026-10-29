@@ -1,5 +1,5 @@
 // QA screenshots của kịch bản thiệp, dùng Chrome hệ thống qua puppeteer-core.
-// Chụp nhiều mốc thời gian để xem từng pha: wave -> diploma -> celebrate -> final.
+// Chụp nhiều mốc thời gian để xem từng pha: wave -> diploma -> final.
 import puppeteer from "puppeteer-core";
 import { mkdirSync } from "node:fs";
 

@@ -20,12 +20,12 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Ảnh nền tốt nghiệp (Meshy) — nằm DƯỚI canvas, phủ kín "cover" mọi tỉ lệ */
+/* Ảnh nền WebP — nằm dưới canvas, phủ kín "cover" mọi tỉ lệ */
 .bg-photo {
   position: fixed;
   inset: 0;
   z-index: 0;
-  background-image: url(/grad_bg.png);
+  background-image: url(/grad_bg.webp);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -109,7 +109,7 @@ body {
   left: 50%;
   top: 43%;
   transform: translate(-50%, -50%) scale(0.15) rotate(-8deg);
-  width: min(46vw, 460px);
+  width: min(76vw, 760px);
   opacity: 0;
   pointer-events: none;
   z-index: 6;
@@ -263,6 +263,21 @@ body {
   color: #fff;
   max-width: min(88vw, 520px);
   text-shadow: 0 2px 14px rgba(0, 0, 0, 0.55);
+}
+.venue-link {
+  pointer-events: auto;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.venue-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.venue-link:focus-visible {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 4px;
+  border-radius: 2px;
 }
 
 /* ---------- Loader: màn chờ "đang chuẩn bị buổi lễ" ---------- */
@@ -592,7 +607,7 @@ body {
     max-width: 46vw;
   }
   .diploma {
-    width: min(38vw, 300px);
+    width: min(56vw, 450px);
     top: 46%;
   }
 }

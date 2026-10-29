@@ -18,8 +18,8 @@ export const INVITE = {
   school: "TRƯỜNG ĐẠI HỌC FPT",
 
   /** Thông tin hiển thị dưới giữa trang (mẫu tạm — hãy thay bằng nội dung thật) */
-  time: "8:00 SÁNG",
-  date: "Chủ Nhật · 20 tháng 12, 2026",
+  time: "10:00 - 12:30 SÁNG",
+  date: "Thứ Bảy · 07 tháng 11, 2026",
   venue: "Đại học FPT, Khu CNC Quận 9, Tp. Hồ Chí Minh",
 
   /** Dùng khi URL không có ?name= */
